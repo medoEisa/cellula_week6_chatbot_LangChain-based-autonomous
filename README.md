@@ -1,11 +1,11 @@
-#Project Report: Intelligent REACT Agent for Context-Aware Question Answering
-1. Project Overview
+# **Project Report: Intelligent REACT Agent for Context-Aware Question Answering**
+# **1. Project Overview**
 
 This project implements an AI-powered REACT agent capable of understanding user queries, detecting the presence and relevance of context, and retrieving missing information from the web. It is designed for advanced context-aware question answering, making it ideal for complex technical domains such as quantum computing, AI, and scientific research.
 
 The system leverages LangChain, a modular framework for building agents, along with Tavily for web search, and custom tools for context evaluation.
 
-2. Objectives
+# **2. Objectives**
 
 Context Detection: Identify whether the user query contains sufficient background context for accurate answers.
 
@@ -17,8 +17,8 @@ Answer Generation: Produce concise, technically accurate answers combining user-
 
 Agent Reasoning: Employ ReACT reasoning to chain observations, thoughts, and tool invocations in multi-step problem solving.
 
-3. Architecture & Tools
-3.1 Agent Type
+# **3. Architecture & Tools**
+## **3.1 Agent Type**
 
 LangChain REACT Agent (AgentType.REACT_DESCRIPTION)
 
@@ -26,21 +26,15 @@ Supports multi-step reasoning and tool-calling.
 
 Observes outputs, reasons, and decides next action autonomously.
 
-3.2 Tools
+ ## **3.2 Tools**
 
-ContextPresenceJudge
+### **ContextPresenceJudge**
 
 Detects if the user query contains any context.
 
 Returns structured output for agent reasoning.
 
-ContextRelevanceChecker
-
-Evaluates if provided context is relevant to the question.
-
-Ensures the LLM receives clean and useful input.
-
-WebSearch Tool
+### **WebSearch Tool**
 
 Uses Tavily API to perform web search.
 
@@ -52,8 +46,19 @@ Deduplicates text to provide high-quality, clean information.
 
 Returns structured JSON ready for REACT agent consumption.
 
-4. Implementation Highlights
-4.1 Context Handling
+### **ContextRelevanceChecker**
+
+Evaluates if provided context is relevant to the question.
+
+Ensures the LLM receives clean and useful input.
+
+###  **ContextSplitter**
+-  Separates the user input into **background context** and **actual question**.
+-  ensure that LLM receives both the context and the question clearly.
+
+
+# **4. Implementation Highlights**
+## **4.1 Context Handling**
 
 Queries first pass through ContextPresenceJudge to detect missing context.
 
@@ -61,7 +66,7 @@ ContextRelevanceChecker filters irrelevant user-provided context.
 
 Ensures the agent only uses high-quality context for reasoning.
 
-4.2 Web Scraping & Cleaning
+## **4.2 Web Scraping & Cleaning**
 
 Web content is scraped from URLs returned by Tavily.
 
@@ -77,7 +82,7 @@ Scraped text
 
 Metadata (description, keywords)
 
-4.3 Agent Reasoning Flow
+## **4.3 Agent Reasoning Flow**
 
 Receive user query.
 
@@ -101,6 +106,8 @@ WebSearch Tool → fetches 5 top results from Tavily, scrapes, cleans, and dedup
 
 LLM → combines retrieved data and generates detailed, structured answer.
 
+Context Splitter
+
 Output:
 
 Summarizes 2024 breakthroughs (MATTG, MOFs, etc.)
@@ -109,7 +116,7 @@ Explains impact on cooling, qubit integration, error correction, and scalability
 
 Provides a concise, structured final answer for the user.
 
-6. Technical Stack
+# **6. Technical Stack**
 
 Python 3.11+
 
@@ -123,7 +130,7 @@ Tavily API (search engine for structured results)
 
 JSON (structured output for tools and agent communication)
 
-7. Key Features
+# **7. Key Features**
 
 Multi-step reasoning with transparency (ReACT chain: Observation → Thought → Action → Observation → …)
 
