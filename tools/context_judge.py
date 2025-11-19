@@ -9,8 +9,8 @@ llm = ChatOllama(model="gpt-oss:120b-cloud")
 def build_context_presence_tool():
     """
     Checks if context is present in user input
+    Flow: First tool invoked by agent for every query.  If 'no', calls web_search_tool.
     """
-
     with open("prompts/context_judge_prompt.txt", "r", encoding="utf-8") as f:
         template_text = f.read()
 
@@ -24,6 +24,8 @@ def build_context_presence_tool():
         """
         Checks if context is present in user input
         """
+        print("Building Context Presence Judge Tool.......................")
+
         result = chain.invoke({"input": query})
         return json.dumps({
         "action": "ContextPresenceJudge",
@@ -31,7 +33,7 @@ def build_context_presence_tool():
             })
 
     context_presence_judge.name = "ContextPresenceJudge"
-    context_presence_judge.description = "Checks if context is present in user input. Return 'yes' or 'no'. Only if 'no', call web_search_tool."
+    context_presence_judge.description = "Checks if context is present in user input. context_provided context_missing Only if 'context_missing', call web_search_tool."
 
     return context_presence_judge
 

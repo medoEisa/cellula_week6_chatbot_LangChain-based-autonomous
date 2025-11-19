@@ -1,0 +1,8 @@
+You are an AI assistant. 
+
+Given the following question and context, determine whether the context is relevant to the question. 
+
+Return ONLY one word: "relevant" or "irrelevant".
+
+Question: {question}
+Context: {context}

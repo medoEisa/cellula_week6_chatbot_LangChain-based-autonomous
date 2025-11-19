@@ -1,70 +1,134 @@
 import os
-from tavily import TavilyClient
-from langchain_core.tools import tool
 import json
-import dotenv
-from bs4 import BeautifulSoup
 import requests
+from bs4 import BeautifulSoup
+from langchain_core.tools import tool
+import dotenv
 dotenv.load_dotenv()
+#remove boilerplate/navigation sections
 
-def scrape_url(url, max_chars=2500):
+def clean_html_boilerplate(html: str) -> str:
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Remove navigation and layout parts
+    for tag in soup(["nav", "header", "footer", "aside", "form", "script", "style", "noscript"]):
+        tag.extract()
+
+    # Extract readable text
+    text = soup.get_text(separator=" ")
+    return " ".join(text.split())
+
+
+#deduplicate text
+def deduplicate_text(text: str) -> str:
+    seen = set()
+    unique_words = []
+
+    for word in text.split():
+        if word not in seen:
+            seen.add(word)
+            unique_words.append(word)
+
+    return " ".join(unique_words)
+
+
+#scrape URL
+def scrape_url(url: str) -> dict:
     try:
-        res = requests.get(url, timeout=10)
+        res = requests.get(url, timeout=12, max_redirects=3)
         res.raise_for_status()
+
         soup = BeautifulSoup(res.text, "html.parser")
-        paragraphs = soup.find_all("p")
-        text = " ".join(p.get_text() for p in paragraphs)
-        return text[:max_chars] if text else "No content found"
+
+        title = soup.title.string.strip() if soup.title else ""
+
+        meta_desc = soup.find("meta", attrs={"name": "description"})
+        meta_keywords = soup.find("meta", attrs={"name": "keywords"})
+
+        metadata = {
+            "description": meta_desc["content"].strip() if meta_desc else None,
+            "keywords": meta_keywords["content"].strip() if meta_keywords else None,
+        }
+
+        cleaned_text = clean_html_boilerplate(res.text)
+        deduped_text = deduplicate_text(cleaned_text)
+
+        return {
+            "title": title,
+            "text": deduped_text,
+            "metadata": metadata
+        }
+
     except Exception as e:
-        return f"Error scraping {url}: {e}"
+        return {"title": None, "text": None, "metadata": None, "error": str(e)}
 
-def build_web_search_tool(top_n: int = 5):
+
+#Tavily Search + Scraping Tool
+def build_web_search_tool(max_results: int = 3):
+    """ 
+    Builds a web search tool using Tavily API and scraping.
     """
-    Tavily search + scrape tool. Retrieves top N search results,
-    scrapes the pages, optionally summarizes with LLM.
-    """
-    api_key = os.getenv("TAVILY_API_KEY")
-    if not api_key:
-        raise ValueError("TAVILY_API_KEY is not set in environment")
-
-    client = TavilyClient(api_key=api_key)
-
     @tool
-    def web_search(query: str):
-        """" Search Tavily, scrape top N URLs for full content"""
-        response = client.search(query, include_raw_content=True)
-        results = response.get("results", [])
-        if not results:
-            return "No results found."
+    def web_search(query: str) -> str:
+        """
+        Performs Tavily web search and scrapes each resulting URL.
+        Returns:
+            {
+                "action": "WebSearch",
+                "action_input": [
+                    {
+                        "title": ...,
+                        "url": ...,
+                        "summary": Tavily summary,
+                        "scraped_title": ...,
+                        "scraped_text": ...,
+                        "metadata": {...}
+                    },
+                    ...
+                ]
+            }
+        """
+        print("Invoking Web Search Tool......................")
+        api_key = os.getenv("TAVILY_API_KEY")
+        if not api_key:
+            return json.dumps({
+                "error": "TAVILY_API_KEY is not set in environment"
+            })
 
-        top_results = results[:top_n]
-        aggregated_text = ""
+        tavily_payload = {
+            "api_key": api_key,
+            "query": query,
+            "search_depth": "advanced",
+            "max_results": max_results,
+        }
 
-        for i, r in enumerate(top_results):
-            title = r.get("title", "No title")
-            url = r.get("url", "")
-            content_snippet = r.get("content", "")  
-            scraped_content = scrape_url(url)  
-            aggregated_text += (
-                f"Result {i+1}:\nTitle: {title}\n"
-                f"Tavily snippet: {content_snippet}\nScraped content: {scraped_content}\n\n"
-            )
+        try:
+            r = requests.post("https://api.tavily.com/search", json=tavily_payload, timeout=12)
+            r.raise_for_status()
+            tavily_data = r.json()
+        except Exception as e:
+            return json.dumps({"error": f"Tavily API error: {e}"})
+
+        results = []
+        for item in tavily_data.get("results", []):
+            url = item.get("url")
+
+            scraped = scrape_url(url)
+
+            results.append({
+                "title": item.get("title"),
+                "summary": item.get("content"),
+                "scraped_title": scraped.get("title"),
+                "scraped_text": scraped.get("text"),
+            })
 
         return json.dumps({
-        "action": "webSearchScrapeTool",
-        "action_input": aggregated_text
+            "action": "WebSearch",
+            "action_input": results
         })
-
-    web_search.name = "web_search"
-    web_search.description = "Searches the web to retrieve missing context , to retrieve relevant information"
     
+    web_search.name = "WebSearch"
+    web_search.description = "Use this tool when the user needs external information. It performs a Tavily web search, scrapes all returned URLs, cleans boilerplate, deduplicates text, and returns high-quality context. After using this tool , alwayas use the context relevance tool to ensure the context is relevant to the user question."
 
     return web_search
 
-
-
-# if __name__ == "__main__":
-#     search_tool = build_web_search_tool(top_n=5)
-#     query = "Latest advancements in AI technology"
-#     result = search_tool.invoke(query)
-#     print(result)
